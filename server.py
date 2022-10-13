@@ -1,4 +1,3 @@
-
 import subprocess
 import os
 import re
@@ -15,7 +14,7 @@ cli.add_argument('--cert-file', dest='certfile')
 cli.add_argument('--adb-path', dest='adbpath', default=os.environ.get('WEB_ADB'))
 arguments = cli.parse_args()
 
-def _adb(args, device=None):
+def adb(args, device=None):
     base = [arguments.adbpath]
     if device is not None:
         base = base + ['-s', device]
@@ -26,7 +25,7 @@ def _adb(args, device=None):
     return (p.returncode, stdout, stderr)
 
 def _getprop(device, property, default):
-    (rc, out, _) = _adb(['shell', 'getprop', property], device=device)
+    (rc, out, _) = adb(['shell', 'getprop', property], device=device)
 
     if not rc == 0:
         return default
@@ -36,7 +35,8 @@ def _getprop(device, property, default):
         return default
 
 def _getnetwork(device):
-    (rc, out, err) = _adb(['shell', 'dumpsys', 'wifi'], device=device)
+    (rc, out, err) = adb(['shell', 'dumpsys', 'wifi'], device=device)
+    print(adb(['shell', 'dumpsys', 'wifi'], device=device))
     print('network done ' + str(rc))
     if rc != 0:
         print(err)
@@ -53,11 +53,11 @@ def _getnetwork(device):
 
         network['connected'] = (tokens[4].startswith('CONNECTED/CONNECTED'.encode("utf-8")))
         network['ssid'] = tokens[8].replace('"'.encode("utf-8"), ''.encode("utf-8")).rstrip(','.encode("utf-8"))
-
+    print("Outtt", out)
     return network
 
 def _getbattery(device):
-    (rc, out, err) = _adb(['shell', 'dumpsys', 'battery'], device=device)
+    (rc, out, err) = adb(['shell', 'dumpsys', 'battery'], device=device)
     print('battery done ' + str(rc))
     if rc != 0:
         print(err)
@@ -92,7 +92,7 @@ def _getbattery(device):
     return battery
 
 def _getscreen(device):
-    (rc, out, err) = _adb(['shell', 'dumpsys', 'input'], device=device)
+    (rc, out, err) = adb(['shell', 'dumpsys', 'input'], device=device)
     print('screen done ' + str(rc))
     if rc != 0:
         print(err)
@@ -118,7 +118,7 @@ def _getscreen(device):
         elif  key == 'surfaceorientation':
             screen['orientation'] = value
 
-    (rc, out, err) = _adb(['shell', 'wm', 'density'], device=device)
+    (rc, out, err) = adb(['shell', 'wm', 'density'], device=device)
     tokens = out.split(': '.encode("utf-8"))
     if len(tokens) == 2:
         screen['density'] = tokens[1].strip()
@@ -126,7 +126,7 @@ def _getscreen(device):
     return screen
 
 def get_devices(handler):
-    (_, out, _) = _adb(['devices'])
+    (_, out, _) = adb(['devices'])
     devices = []
     for l in out.split('\n'.encode("utf-8")):
         tokens = l.split()
@@ -144,14 +144,13 @@ def get_devices(handler):
             'battery': _getbattery(id),
             'screen': _getscreen(id)
         })
-
     return devices
 
 def get_screenshot(handler):
     path = urlparse(handler.path).path
     device = path[12:]
     print(device)
-    (rc, out, err) = _adb(['exec-out', 'screencap', '-p'], device=device)
+    (rc, out, err) = adb(['exec-out', 'screencap', '-p'], device=device)
     print('screencap done ' + str(rc))
     if rc != 0:
         print(err)
@@ -161,7 +160,7 @@ def get_logcat(handler):
     path = urlparse(handler.path).path
     device = path[8:]
     print(device)
-    (rc, out, err) = _adb(['logcat', '-d', '-v', 'brief'], device=device)
+    (rc, out, err) = adb(['logcat', '-d', '-v', 'brief'], device=device)
     print('logcat done ' + str(rc))
     if rc != 0:
         print(err)
@@ -189,7 +188,7 @@ def post_key(handler):
         device = payload['device']
         key = payload['key']
         print(device + ' : ' + str(key))
-        (rc, _, err) = _adb(['shell', 'input', 'keyevent', key], device=device)
+        (rc, _, err) = adb(['shell', 'input', 'keyevent', key], device=device)
         print('keyevent done ' + str(rc))
         if rc != 0:
             print(err)
@@ -202,7 +201,7 @@ def post_text(handler):
         text = payload['text']
         text = text.replace(' ', '%s')
         print(device + ' : ' + str(text))
-        (rc, _, err) = _adb(['shell', 'input', 'text', '"' + text + '"'], device=device)
+        (rc, _, err) = adb(['shell', 'input', 'text', '"' + text + '"'], device=device)
         print('text done ' + str(rc))
         if rc != 0:
             print(err)
@@ -215,19 +214,20 @@ def post_tap(handler):
         x = payload['x']
         y = payload['y']
         print(device + ' : ' + str(x) + ', ' + str(y))
-        (rc, _, err) = _adb(['shell', 'input', 'tap', x, y], device=device)
+        (rc, _, err) = adb(['shell', 'input', 'tap', x, y], device=device)
         print('tap done ' + str(rc))
         if rc != 0:
             print(err)
     return 'OK'
 
 def post_shell(handler):
+    rc, out, err = None, None, None
     payload = handler.get_payload()
     if 'device' in payload and 'command' in payload:
         device = payload['device']
         command = payload['command']
         print(device + ' : ' + command)
-        (rc, out, err) = _adb(['shell', command], device=device)
+        (rc, out, err) = adb(['shell', command], device=device)
         print('shell done ' + str(rc))
         if rc != 0:
             print(err)
@@ -238,7 +238,7 @@ def post_reboot(handler):
     if 'device' in payload:
         device = payload['device']
         print(device)
-        (rc, _, err) = _adb(['reboot'], device=device)
+        (rc, _, err) = adb(['reboot'], device=device)
         print('reboot done ' + str(rc))
         if rc != 0:
             print(err)
@@ -324,7 +324,6 @@ class RESTRequestHandler(BaseHTTPRequestHandler):
                                 self.send_header('Cache-control', route['cache_type'])
                             self.end_headers()
                             if method != 'DELETE':
-                                print("TestDEL-1")
                                 if route['media_type'] == 'application/json':
 
                                     # Change 'id' value from bytes to string (original)
