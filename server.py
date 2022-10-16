@@ -26,6 +26,7 @@ def adb(args, device=None):
 
 def _getprop(device, property, default):
     (rc, out, _) = adb(['shell', 'getprop', property], device=device)
+    print("PROP -", (rc, out, _))
 
     if not rc == 0:
         return default
@@ -33,6 +34,15 @@ def _getprop(device, property, default):
         return out.strip()
     else:
         return default
+
+def getPull(device, source, destination):
+    (rc, out, err) = adb(['pull', source, destination], device=device)
+    adb(['pull', source, destination], device=device)
+    
+    if rc != 0:
+        print(err)
+    else:
+        print("pull success!")
 
 def _getnetwork(device):
     (rc, out, err) = adb(['shell', 'dumpsys', 'wifi'], device=device)
@@ -127,14 +137,19 @@ def _getscreen(device):
 
 def get_devices(handler):
     (_, out, _) = adb(['devices'])
+    # print("Get-1", (_, out, _))
     devices = []
     for l in out.split('\n'.encode("utf-8")):
         tokens = l.split()
+        # print("Get-token -", l, tokens)
         if not len(tokens) == 2:
             # Discard line that doesn't contain device information
             continue
 
         id = tokens[0]
+        # print("Ini id -", id)
+        # print("Ini type id -", type(id))
+        id = id.decode('utf-8')
         devices.append({
             'id': id,
             'manufacturer': _getprop(id, 'ro.product.manufacturer', 'unknown'),
@@ -315,7 +330,6 @@ class RESTRequestHandler(BaseHTTPRequestHandler):
                 else:
                     if method in route:
                         content = route[method](self)
-                        # print("ASSSSSSSSSSSS!!!", content)
                         if content is not None:
                             self.send_response(200)
                             if 'media_type' in route:
@@ -325,10 +339,14 @@ class RESTRequestHandler(BaseHTTPRequestHandler):
                             self.end_headers()
                             if method != 'DELETE':
                                 if route['media_type'] == 'application/json':
-
                                     # Change 'id' value from bytes to string (original)
-                                    content[0]['id'] = content[0]['id'].decode('utf-8')
-                                    
+                                    content[0]['manufacturer'] = content[0]['manufacturer'].decode('utf-8')
+                                    content[0]['model'] = content[0]['model'].decode('utf-8')
+                                    content[0]['sdk'] = content[0]['sdk'].decode('utf-8')
+                                    # content[0]['id'] = content[0]['id'].encode('utf-8')
+
+                                    print("isi content")
+                                    print(content)
                                     self.wfile.write(json.dumps(content).encode('utf-8'))
                                 else:
                                     self.wfile.write(content)
