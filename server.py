@@ -2,7 +2,6 @@ import subprocess
 import os
 import re
 import json
-from urllib.request import urlopen
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import ssl
 from urllib.parse import urlparse
@@ -26,8 +25,6 @@ def adb(args, device=None):
 
 def _getprop(device, property, default):
     (rc, out, _) = adb(['shell', 'getprop', property], device=device)
-    print("PROP -", (rc, out, _))
-
     if not rc == 0:
         return default
     elif out.strip():
@@ -45,25 +42,33 @@ def getPull(device, source, destination):
         print("pull success!")
 
 def _getnetwork(device):
-    (rc, out, err) = adb(['shell', 'dumpsys', 'wifi'], device=device)
-    print(adb(['shell', 'dumpsys', 'wifi'], device=device))
+    (rc, out, err) = adb(["shell", "dumpsys wifi | grep 'current SSID' | grep -o '{.*}'"], device=device)
+    ore = out
+    ore = ore.decode("utf-8")
+    ore = ore.replace('=', ':')
+    ore = ore.replace('iface', '"iface"')
+    ore = ore.replace('"iface":', '"iface":"')
+    ore = ore.replace(',ssid', '","ssid"')
+    oreDict = json.loads(ore)
+
     print('network done ' + str(rc))
     if rc != 0:
         print(err)
 
     network = {
-        'connected': False,
-        'ssid': 'unknown'
+        'connected': True,
+        'ssid': oreDict['ssid']
     }
 
     for l in out.split('\n'.encode("utf-8")):
         tokens = l.split()
         if not len(tokens) > 10 or tokens[0] != 'mNetworkInfo':
             continue
-
+        print("Token 4:", tokens[4])
+        print("Token 8:", tokens[8])
         network['connected'] = (tokens[4].startswith('CONNECTED/CONNECTED'.encode("utf-8")))
         network['ssid'] = tokens[8].replace('"'.encode("utf-8"), ''.encode("utf-8")).rstrip(','.encode("utf-8"))
-    print("Outtt", out)
+
     return network
 
 def _getbattery(device):
@@ -86,24 +91,24 @@ def _getbattery(device):
 
         key = tokens[0].strip().lower()
         value = tokens[1].strip().lower()
-        if key == 'ac powered' and value == 'true':
+        if key.decode('utf-8') == 'ac powered' and value == 'true':
             battery['plugged'] = 'AC'
-        elif  key == 'usb powered' and value == 'true':
+        elif key.decode('utf-8') == 'usb powered' and value == 'true':
             battery['plugged'] = 'USB'
-        elif  key == 'wireless powered' and value == 'true':
+        elif key.decode('utf-8') == 'wireless powered' and value == 'true':
             battery['plugged'] = 'Wireless'
-        elif  key == 'level':
+        elif key.decode('utf-8') == 'level':
             battery['level'] = value
-        elif  key == 'status':
+        elif key.decode('utf-8') == 'status':
             battery['status'] = value
-        elif  key == 'health':
+        elif key.decode('utf-8') == 'health':
             battery['health'] = value
-
+    print(battery)
     return battery
 
 def _getscreen(device):
     (rc, out, err) = adb(['shell', 'dumpsys', 'input'], device=device)
-    print('screen done ' + str(rc))
+    # print('screen done ' + str(rc))
     if rc != 0:
         print(err)
 
@@ -118,16 +123,15 @@ def _getscreen(device):
         tokens = l.split(': '.encode("utf-8"))
         if len(tokens) < 2:
             continue
-
         key = tokens[0].strip().lower()
         value = tokens[1].strip().lower()
-        if  key == 'surfacewidth':
-            screen['width'] = value
-        elif  key == 'surfaceheight':
-            screen['height'] = value
-        elif  key == 'surfaceorientation':
-            screen['orientation'] = value
 
+        if key.decode('utf-8') == 'surfacewidth':
+            screen['width'] = value
+        elif key.decode('utf-8') == 'surfaceheight':
+            screen['height'] = value
+        elif key.decode('utf-8') == 'surfaceorientation':
+            screen['orientation'] = value
     (rc, out, err) = adb(['shell', 'wm', 'density'], device=device)
     tokens = out.split(': '.encode("utf-8"))
     if len(tokens) == 2:
@@ -137,19 +141,15 @@ def _getscreen(device):
 
 def get_devices(handler):
     (_, out, _) = adb(['devices'])
-    # print("Get-1", (_, out, _))
+
     devices = []
     for l in out.split('\n'.encode("utf-8")):
         tokens = l.split()
-        # print("Get-token -", l, tokens)
         if not len(tokens) == 2:
             # Discard line that doesn't contain device information
             continue
 
-        id = tokens[0]
-        # print("Ini id -", id)
-        # print("Ini type id -", type(id))
-        id = id.decode('utf-8')
+        id = tokens[0].decode('utf-8')
         devices.append({
             'id': id,
             'manufacturer': _getprop(id, 'ro.product.manufacturer', 'unknown'),
@@ -339,14 +339,14 @@ class RESTRequestHandler(BaseHTTPRequestHandler):
                             self.end_headers()
                             if method != 'DELETE':
                                 if route['media_type'] == 'application/json':
-                                    # Change 'id' value from bytes to string (original)
+
+                                    # Change some value from bytes to string (original)
                                     content[0]['manufacturer'] = content[0]['manufacturer'].decode('utf-8')
                                     content[0]['model'] = content[0]['model'].decode('utf-8')
                                     content[0]['sdk'] = content[0]['sdk'].decode('utf-8')
-                                    # content[0]['id'] = content[0]['id'].encode('utf-8')
-
-                                    print("isi content")
-                                    print(content)
+                                    content[0]['battery']['level'] = content[0]['battery']['level'].decode('utf-8')
+                                    content[0]['battery']['status'] = content[0]['battery']['status'].decode('utf-8')
+                                    content[0]['battery']['health'] = content[0]['battery']['health'].decode('utf-8')
                                     self.wfile.write(json.dumps(content).encode('utf-8'))
                                 else:
                                     self.wfile.write(content)
