@@ -91,11 +91,11 @@ def _getbattery(device):
 
         key = tokens[0].strip().lower()
         value = tokens[1].strip().lower()
-        if key.decode('utf-8') == 'ac powered' and value == 'true':
+        if key.decode('utf-8') == "ac powered" and value.decode('utf-8') == "true":
             battery['plugged'] = 'AC'
-        elif key.decode('utf-8') == 'usb powered' and value == 'true':
+        elif key.decode('utf-8') == 'usb powered' and value.decode('utf-8') == 'true':
             battery['plugged'] = 'USB'
-        elif key.decode('utf-8') == 'wireless powered' and value == 'true':
+        elif key.decode('utf-8') == 'wireless powered' and value.decode('utf-8') == 'true':
             battery['plugged'] = 'Wireless'
         elif key.decode('utf-8') == 'level':
             battery['level'] = value
@@ -103,7 +103,6 @@ def _getbattery(device):
             battery['status'] = value
         elif key.decode('utf-8') == 'health':
             battery['health'] = value
-    print(battery)
     return battery
 
 def _getscreen(device):
@@ -126,12 +125,13 @@ def _getscreen(device):
         key = tokens[0].strip().lower()
         value = tokens[1].strip().lower()
 
-        if key.decode('utf-8') == 'surfacewidth':
+        if key.decode('utf-8') == 'displaywidth':
             screen['width'] = value
-        elif key.decode('utf-8') == 'surfaceheight':
+        elif key.decode('utf-8') == 'displayheight':
             screen['height'] = value
-        elif key.decode('utf-8') == 'surfaceorientation':
+        elif key.decode('utf-8') == 'orientation':
             screen['orientation'] = value
+
     (rc, out, err) = adb(['shell', 'wm', 'density'], device=device)
     tokens = out.split(': '.encode("utf-8"))
     if len(tokens) == 2:
@@ -159,6 +159,7 @@ def get_devices(handler):
             'battery': _getbattery(id),
             'screen': _getscreen(id)
         })
+    print(devices)
     return devices
 
 def get_screenshot(handler):
@@ -339,14 +340,21 @@ class RESTRequestHandler(BaseHTTPRequestHandler):
                             self.end_headers()
                             if method != 'DELETE':
                                 if route['media_type'] == 'application/json':
-
-                                    # Change some value from bytes to string (original)
+                                    # Stuff
                                     content[0]['manufacturer'] = content[0]['manufacturer'].decode('utf-8')
                                     content[0]['model'] = content[0]['model'].decode('utf-8')
                                     content[0]['sdk'] = content[0]['sdk'].decode('utf-8')
+
+                                    # Battery
                                     content[0]['battery']['level'] = content[0]['battery']['level'].decode('utf-8')
                                     content[0]['battery']['status'] = content[0]['battery']['status'].decode('utf-8')
                                     content[0]['battery']['health'] = content[0]['battery']['health'].decode('utf-8')
+
+                                    # Screen
+                                    content[0]['screen']['width'] = content[0]['screen']['width'].decode('utf-8')
+                                    content[0]['screen']['height'] = content[0]['screen']['height'].decode('utf-8')
+                                    content[0]['screen']['orientation'] = content[0]['screen']['orientation'].decode('utf-8')
+
                                     self.wfile.write(json.dumps(content).encode('utf-8'))
                                 else:
                                     self.wfile.write(content)
