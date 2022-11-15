@@ -25,3 +25,6 @@ The following are required on the host machine running Web ADB:
 * `--port` the local port to bind the server (defaults to `8080`)
 * `--adb-path` the path to the `ADB` binary
 * `--cert-file` the path to a `PEM` file you want to use to enable `HTTPS` support
+
+### Note
+currently you can't run it in windows (I'll fix ASAP), but you can run it in Linux.
