@@ -27,4 +27,5 @@ The following are required on the host machine running Web ADB:
 * `--cert-file` the path to a `PEM` file you want to use to enable `HTTPS` support
 
 ### Note
-currently you can't run it in windows (I'll fix ASAP), but you can run it in Linux.
+* currently you can't run it in windows (I'll fix ASAP), but you can run it in Linux.
+* Checkout my new repository [django-webadb](https://github.com/mrdotss/django-webadb), the more powerful adb in browser with Django 5
